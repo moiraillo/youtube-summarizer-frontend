@@ -624,7 +624,7 @@
         let ttsAbortController = null; // TTS fetch 취소용
         let ttsGenerating = false; // TTS 생성 중 플래그
 
-        const SERVER_URL = 'https://youtube-summarizer-backend-api.onrender.com';
+        const SERVER_URL = 'http://localhost:5001';
 
         // 조회수 포맷 (예: 1.2만회, 345회)
         function formatViewCount(count) {
@@ -1326,25 +1326,35 @@
 
         // 자막 가져오기
         async function getVideoTranscript(videoId) {
+            // 방법 1: Vercel 서버리스 함수로 자막 가져오기
+            try {
+                const response = await fetch('/api/transcript?videoId=' + videoId);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.transcript) {
+                        console.log('Vercel 자막 가져오기 성공:', data.transcript.length + '자');
+                        return data.transcript;
+                    }
+                }
+            } catch (e) {
+                console.log('Vercel 자막 실패, 백엔드 시도:', e);
+            }
+
+            // 방법 2: 백엔드 서버 경유
             try {
                 const response = await fetch(SERVER_URL + '/api/transcript/' + videoId);
-                
-                if (!response.ok) {
-                    throw new Error('자막을 가져올 수 없습니다');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.transcript) {
+                        console.log('백엔드 자막 가져오기 성공:', data.transcript.length + '자');
+                        return data.transcript;
+                    }
                 }
-                
-                const data = await response.json();
-                
-                if (!data.transcript) {
-                    throw new Error('자막이 없습니다');
-                }
-                
-                console.log('자막 가져오기 성공:', data.transcript.length + '자');
-                return data.transcript;
-            } catch (error) {
-                console.error('자막 가져오기 실패:', error);
-                throw new Error('자막을 가져오는데 실패했습니다: ' + error.message);
+            } catch (e) {
+                console.log('백엔드 자막 실패:', e);
             }
+
+            throw new Error('자막을 가져올 수 없습니다');
         }
 
         // AI 요약 생성
