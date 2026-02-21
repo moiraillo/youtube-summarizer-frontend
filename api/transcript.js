@@ -5,33 +5,52 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'videoId required' });
     }
 
-    // CORS 헤더
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET');
 
     try {
-        // YouTube Innertube API로 자막 트랙 정보 가져오기
-        const playerResponse = await fetch('https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
-            method: 'POST',
+        // YouTube 영상 페이지 HTML 가져오기
+        const pageResponse = await fetch('https://www.youtube.com/watch?v=' + videoId, {
             headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            body: JSON.stringify({
-                context: {
-                    client: {
-                        clientName: 'WEB',
-                        clientVersion: '2.20250101.00.00',
-                        hl: 'ko',
-                        gl: 'KR'
-                    }
-                },
-                videoId: videoId
-            })
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept': 'text/html,application/xhtml+xml'
+            }
         });
 
-        const playerData = await playerResponse.json();
-        const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+        if (!pageResponse.ok) {
+            throw new Error('YouTube 페이지 로드 실패: ' + pageResponse.status);
+        }
+
+        const html = await pageResponse.text();
+
+        // ytInitialPlayerResponse에서 자막 트랙 추출
+        const playerRegex = /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s;
+        const playerMatch = html.match(playerRegex);
+        
+        let tracks = [];
+
+        if (playerMatch) {
+            try {
+                const playerData = JSON.parse(playerMatch[1]);
+                tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+            } catch (e) {
+                console.error('playerResponse 파싱 실패:', e.message);
+            }
+        }
+
+        // 못 찾으면 captionTracks 직접 추출
+        if (tracks.length === 0) {
+            const captionRegex = /"captionTracks":\s*(\[.*?\])\s*,/;
+            const match = html.match(captionRegex);
+            if (match) {
+                try {
+                    tracks = JSON.parse(match[1].replace(/\\u0026/g, '&'));
+                } catch (e) {
+                    console.error('captionTracks 파싱 실패:', e.message);
+                }
+            }
+        }
 
         if (tracks.length === 0) {
             return res.status(404).json({ error: '사용 가능한 자막이 없습니다' });
@@ -45,23 +64,29 @@ export default async function handler(req, res) {
         }
         if (!trackUrl) trackUrl = tracks[0].baseUrl;
 
-        // 자막 데이터 가져오기
-        const captionResponse = await fetch(trackUrl + '&fmt=json3', {
+        // URL 디코딩
+        trackUrl = trackUrl.replace(/\\u0026/g, '&');
+
+        // 자막 XML 가져오기
+        const captionResponse = await fetch(trackUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
-        const captionData = await captionResponse.json();
 
-        const texts = [];
-        for (const event of (captionData.events || [])) {
-            for (const seg of (event.segs || [])) {
-                const text = (seg.utf8 || '').trim();
-                if (text && text !== '\n') {
-                    texts.push(text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
-                }
-            }
-        }
+        const xmlText = await captionResponse.text();
+
+        // XML에서 텍스트 추출
+        const textMatches = xmlText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
+        const texts = textMatches.map(t => {
+            return t.replace(/<[^>]+>/g, '')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&#39;/g, "'")
+                .replace(/&quot;/g, '"')
+                .trim();
+        }).filter(t => t);
 
         if (texts.length === 0) {
             return res.status(404).json({ error: '자막 텍스트가 비어있습니다' });
