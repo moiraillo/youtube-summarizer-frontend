@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 투자 영상 요약기</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --accent-blue: #4299e1;
+            --accent-purple: #9f7aea;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #475569;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 로그인 화면 */
+        .login-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 3rem;
+            margin: 4rem auto;
+            max-width: 500px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .login-title {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .login-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        /* 헤더 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-left h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .user-name {
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .settings-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--accent-blue);
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            flex-shrink: 0;
+        }
+
+        .status {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .status.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        .channel-list {
+            margin-top: 1rem;
+        }
+
+        .channel-item {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .channel-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .channel-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .channel-url {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .video-item {
+                display: flex;
+                flex-direction: row;
+                gap: 0.75rem;
+                align-items: flex-start;
+            }
+
+            .video-item .video-thumbnail {
+                width: 144px;
+                min-width: 144px;
+                margin-bottom: 0;
+            }
+
+            .video-item .video-title {
+                font-size: 0.9rem;
+            }
+
+            .video-item .video-channel,
+            .video-item .video-date {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .video-item .video-thumbnail {
+                width: 117px;
+                min-width: 117px;
+            }
+        }
+
+        .video-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .video-item:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .video-item.selected {
+            border-color: var(--primary);
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .video-checkbox {
+            margin-right: 0.5rem;
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+
+        .video-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+        }
+
+        .video-channel {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .video-date {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        .video-meta {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-top: 0.25rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .video-views {
+            color: var(--text-secondary);
+        }
+
+        .video-meta .video-date {
+            margin-top: 0;
+        }
+
+        .video-meta .video-views::after {
+            content: '·';
+            margin-left: 0.5rem;
+        }
+
+        .floating-action-bar {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .floating-action-bar.hidden {
+            display: block;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        .floating-action-bar.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .floating-summarize-btn {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+            white-space: nowrap;
+        }
+
+        .floating-summarize-btn:hover {
+            box-shadow: 0 6px 24px rgba(102, 126, 234, 0.7);
+        }
+
+        .summary-item {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .summary-video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-channel {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .summary-category {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .category-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .category-icon {
+            font-size: 1.2rem;
+        }
+
+        .category-content {
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, var(--accent-purple), var(--primary));
+            color: white;
+            font-size: 0.95rem;
+            padding: 0 1.2rem !important;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            height: 38px !important;
+            max-height: 38px !important;
+            min-height: 38px !important;
+            line-height: 38px !important;
+            white-space: nowrap;
+            box-sizing: border-box;
+            transition: background 0.2s, box-shadow 0.2s !important;
+            align-self: center;
+            flex-shrink: 0;
+        }
+
+        .btn-play.loading {
+            background: var(--bg-tertiary);
+            height: 38px !important;
+        }
+
+        .btn-play .progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(135deg, var(--accent-purple), var(--primary));
+            z-index: -1;
+            transition: width 0.3s ease;
+            pointer-events: none;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(159, 122, 234, 0.4);
+        }
+
+        .btn-play.playing {
+            background: linear-gradient(135deg, var(--error), #dc2626);
+            height: 38px !important;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 로그인 화면 -->
+        <div id="loginScreen" class="login-section">
+            <h1 class="login-title">📺 YouTube 투자 영상 요약기</h1>
+            <p class="login-subtitle">Google 계정으로 로그인하여 시작하세요</p>
+            <div id="g_id_onload"
+                 data-client_id="959978801803-0o94g9m7irav77nkl8hu8l90q4i4pklv.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-size="large"
+                 data-theme="filled_blue"
+                 data-text="sign_in_with"
+                 data-shape="rectangular"
+                 data-logo_alignment="left">
+            </div>
+        </div>
+
+        <!-- 메인 앱 화면 -->
+        <div id="mainApp" class="hidden">
+            <div class="header">
+                <div class="header-left">
+                    <h1>📺 YouTube 투자 영상 요약기</h1>
+                    <p class="subtitle">AI가 투자 관련 YouTube 영상을 자동으로 요약하고 음성으로 들려드립니다</p>
+                </div>
+                <div class="user-info">
+                    <img id="userAvatar" src="" alt="User" class="user-avatar">
+                    <div class="user-details">
+                        <div class="user-name" id="userName"></div>
+                        <button class="logout-btn" onclick="logout()">로그아웃</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 채널 관리 -->
+            <div class="settings-section">
+                <div class="section-title">📺 채널 관리</div>
+                <div class="input-group">
+                    <label for="channelUrl">유튜브 채널 URL</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="channelUrl" placeholder="https://www.youtube.com/@channelname" style="flex: 1;">
+                        <button class="btn-primary" onclick="addChannel()" style="white-space: nowrap; flex-shrink: 0;">채널 추가</button>
+                    </div>
+                </div>
+                <div id="channelStatus"></div>
+                <div id="channelList" class="channel-list"></div>
+            </div>
+
+            <!-- 영상 선택 -->
+            <div class="settings-section">
+                <div class="section-title">🎬 영상 선택</div>
+                <div id="videosContainer"></div>
+            </div>
+
+            <!-- 플로팅 요약 버튼 -->
+            <div id="actionBar" class="floating-action-bar hidden">
+                <button class="btn-primary floating-summarize-btn" id="summarizeBtn" onclick="summarizeVideos()">선택한 영상 요약하기 (0개 선택됨)</button>
+            </div>
+
+            <!-- 요약 결과 -->
+            <div id="summarySection" class="settings-section hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div class="section-title">📝 요약 결과</div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn-play" id="playAllButton" onclick="playAllSummaries()" style="display: none;">
+                            🔊 전체 듣기
+                        </button>
+                        <button class="btn-secondary" id="restartAllButton" onclick="restartAllSummaries()" style="display: none; padding: 8px 16px; font-size: 14px;">
+                            🔄 처음부터
+                        </button>
+                    </div>
+                </div>
+                <div id="summaryContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 상태
+        let currentUser = null;
+        let channels = [];
+        let apiKeys = { youtube: '', gemini: '' };
+        let selectedVideos = new Map();
+        let currentAudio = null;
+        let isSpeaking = false;
+        let isPaused = false;
+        let ttsCache = {}; // 생성된 음성 캐시
+        let playAllIndex = -1;
+        let isPlayingAll = false;
+        let ttsAbortController = null; // TTS fetch 취소용
+        let ttsGenerating = false; // TTS 생성 중 플래그
+
+        const SERVER_URL = 'http://localhost:5001';
+
+        // 조회수 포맷 (예: 1.2만회, 345회)
+        function formatViewCount(count) {
+            if (count >= 100000000) return (count / 100000000).toFixed(1) + '억회';
+            if (count >= 10000) return (count / 10000).toFixed(1) + '만회';
+            if (count >= 1000) return (count / 1000).toFixed(1) + '천회';
+            return count + '회';
+        }
+
+        // Google 로그인 콜백
+        function handleCredentialResponse(response) {
+            const credential = response.credential;
+            
+            showStatus('loginStatus', '로그인 중...', 'success');
+            
+            fetch(SERVER_URL + '/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ token: credential })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    currentUser = data.user;
+                    channels = data.user.channels || [];
+                    showMainApp();
+                    loadApiKeys().then(function() {
+                        if (channels.length > 0) loadVideos();
+                    });
+                } else {
+                    alert('로그인 실패: ' + (data.error || '알 수 없는 오류'));
+                }
+            })
+            .catch(err => {
+                console.error('로그인 오류:', err);
+                alert('로그인 중 오류가 발생했습니다: ' + err.message);
+            });
+        }
+
+        // 로그아웃
+        function logout() {
+            fetch(SERVER_URL + '/api/auth/logout', {
+                method: 'POST',
+                credentials: 'include'
+            })
+            .then(() => {
+                currentUser = null;
+                channels = [];
+                selectedVideos.clear();
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+            })
+            .catch(err => {
+                console.error('로그아웃 오류:', err);
+            });
+        }
+
+        // 메인 앱 표시
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userAvatar').src = currentUser.picture;
+            renderChannels();
+        }
+
+        // API 키 로드
+        function loadApiKeys() {
+            return fetch(SERVER_URL + '/api/keys', {
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                apiKeys.youtube = data.youtube;
+                apiKeys.gemini = data.gemini;
+                console.log('✅ API 키 로드 완료');
+            })
+            .catch(err => {
+                console.error('❌ API 키 로드 실패:', err);
+            });
+        }
+
+        // Edge TTS: 서버에서 AI 음성 생성 후 재생 (캐시 지원)
+        async function edgeTTS(text, button, defaultLabel, cacheKey) {
+            try {
+                // 캐시에 있으면 바로 재생
+                if (cacheKey && ttsCache[cacheKey]) {
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+                    
+                    const audio = new Audio(ttsCache[cacheKey]);
+                    currentAudio = audio;
+                    isSpeaking = true;
+                    isPaused = false;
+                    button.textContent = '⏸️ 정지';
+                    button.classList.add('playing');
+                    button.classList.remove('loading');
+                    removeProgressFill(button);
+                    
+                    audio.onended = function() {
+                        button.textContent = defaultLabel;
+                        button.classList.remove('playing');
+                        isSpeaking = false;
+                        isPaused = false;
+                        currentAudio = null;
+                    };
+                    
+                    audio.onerror = function() {
+                        button.textContent = defaultLabel;
+                        button.classList.remove('playing');
+                        isSpeaking = false;
+                        isPaused = false;
+                        currentAudio = null;
+                    };
+                    
+                    audio.play();
+                    return;
+                }
+                
+                // 프로그레스 바 시작
+                ttsGenerating = true;
+                button.classList.add('playing', 'loading');
+                button.innerHTML = '<span class="progress-fill"></span>⏳ 음성 생성 중...';
+                var fill = button.querySelector('.progress-fill');
+                var fakeProg = 0;
+                var progTimer = setInterval(function() {
+                    fakeProg += (95 - fakeProg) * 0.03;
+                    if (fill) fill.style.width = fakeProg + '%';
+                }, 200);
+                
+                ttsAbortController = new AbortController();
+                const response = await fetch(SERVER_URL + '/api/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text }),
+                    signal: ttsAbortController.signal
+                });
+                
+                if (!response.ok) throw new Error('TTS 생성 실패');
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                ttsAbortController = null;
+                ttsGenerating = false;
+                
+                // 프로그레스 완료
+                clearInterval(progTimer);
+                if (fill) fill.style.width = '100%';
+                
+                // 캐시에 저장
+                if (cacheKey) ttsCache[cacheKey] = url;
+                
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+                
+                const audio = new Audio(url);
+                currentAudio = audio;
+                isSpeaking = true;
+                isPaused = false;
+                
+                // 프로그레스 바 제거, 재생 상태로 전환
+                button.classList.remove('loading');
+                removeProgressFill(button);
+                button.textContent = '⏸️ 정지';
+                
+                audio.onended = function() {
+                    button.textContent = defaultLabel;
+                    button.classList.remove('playing');
+                    isSpeaking = false;
+                    isPaused = false;
+                    currentAudio = null;
+                };
+                
+                audio.onerror = function() {
+                    button.textContent = defaultLabel;
+                    button.classList.remove('playing', 'loading');
+                    removeProgressFill(button);
+                    isSpeaking = false;
+                    isPaused = false;
+                    currentAudio = null;
+                    alert('음성 재생 중 오류가 발생했습니다.');
+                };
+                
+                audio.play();
+                
+            } catch (e) {
+                if (e.name === 'AbortError') { ttsGenerating = false; return; }
+                console.error('Edge TTS 오류:', e);
+                button.textContent = defaultLabel;
+                button.classList.remove('playing', 'loading');
+                removeProgressFill(button);
+                isSpeaking = false;
+                currentAudio = null;
+                ttsGenerating = false;
+                alert('음성 생성 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 오디오 정지/재개 토글
+        function toggleAudio(button, defaultLabel) {
+            if (!currentAudio) return false;
+            
+            if (isPaused && button.classList.contains('playing')) {
+                currentAudio.play();
+                button.textContent = '⏸️ 정지';
+                isPaused = false;
+                return true;
+            }
+            
+            if (isSpeaking && button.classList.contains('playing') && !isPaused) {
+                currentAudio.pause();
+                button.textContent = '▶️ 재개';
+                isPaused = true;
+                return true;
+            }
+            
+            return false;
+        }
+
+        // 프로그레스 바 요소 제거
+        function removeProgressFill(btn) {
+            var fill = btn.querySelector('.progress-fill');
+            if (fill) fill.remove();
+        }
+
+        // 현재 재생 중인 오디오 전체 중지
+        function stopAllAudio() {
+            if (ttsAbortController) {
+                ttsAbortController.abort();
+                ttsAbortController = null;
+            }
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            isPlayingAll = false;
+            playAllIndex = -1;
+            document.querySelectorAll('.btn-play.playing').forEach(function(btn) {
+                btn.classList.remove('playing', 'loading');
+                removeProgressFill(btn);
+                btn.textContent = btn.id === 'playAllButton' ? '🔊 전체 듣기' : '🎧 듣기';
+            });
+            isSpeaking = false;
+            isPaused = false;
+            ttsGenerating = false;
+        }
+
+        // 스크롤 시 플로팅 버튼 표시/숨김
+        window.addEventListener('scroll', function() {
+            var actionBar = document.getElementById('actionBar');
+            if (!actionBar) return;
+
+            var videoItems = document.querySelectorAll('.video-item');
+            if (videoItems.length < 2) {
+                actionBar.classList.remove('visible');
+                return;
+            }
+
+            var secondVideo = videoItems[1];
+            var rect = secondVideo.getBoundingClientRect();
+
+            var summarySection = document.getElementById('summarySection');
+            var summaryVisible = false;
+            if (summarySection && !summarySection.classList.contains('hidden')) {
+                var summaryRect = summarySection.getBoundingClientRect();
+                summaryVisible = summaryRect.top <= window.innerHeight;
+            }
+
+            if (rect.top <= window.innerHeight && !summaryVisible) {
+                actionBar.classList.add('visible');
+                actionBar.classList.remove('hidden');
+            } else {
+                actionBar.classList.remove('visible');
+                actionBar.classList.add('hidden');
+            }
+        });
+
+        // 상태 메시지 표시
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            element.textContent = message;
+            element.className = 'status ' + type;
+            setTimeout(function() {
+                element.textContent = '';
+                element.className = '';
+            }, 3000);
+        }
+
+        // 채널 추가
+        async function addChannel() {
+            const url = document.getElementById('channelUrl').value.trim();
+            
+            if (!url) {
+                showStatus('channelStatus', '채널 URL을 입력해주세요', 'error');
+                return;
+            }
+
+            if (!url.includes('youtube.com')) {
+                showStatus('channelStatus', '올바른 YouTube URL을 입력해주세요', 'error');
+                return;
+            }
+
+            if (channels.some(function(ch) { return ch.url === url; })) {
+                showStatus('channelStatus', '이미 추가된 채널입니다', 'error');
+                return;
+            }
+
+            const channelId = extractChannelId(url);
+            if (!channelId) {
+                showStatus('channelStatus', '채널 ID를 추출할 수 없습니다', 'error');
+                return;
+            }
+
+            if (!apiKeys.youtube) {
+                showStatus('channelStatus', 'API 키 로딩 중... 잠시 후 다시 시도하세요', 'error');
+                return;
+            }
+
+            try {
+                showStatus('channelStatus', '채널 정보를 가져오는 중...', 'success');
+                const channelName = await fetchChannelName(channelId);
+                
+                const response = await fetch(SERVER_URL + '/api/channels', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ url: url, id: channelId, name: channelName })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    channels.push(data.channel);
+                    document.getElementById('channelUrl').value = '';
+                    showStatus('channelStatus', '채널이 추가되었습니다', 'success');
+                    renderChannels();
+                    loadVideos();
+                } else {
+                    showStatus('channelStatus', '채널 추가 실패: ' + (data.error || '알 수 없는 오류'), 'error');
+                }
+            } catch (error) {
+                showStatus('channelStatus', '오류: ' + error.message, 'error');
+            }
+        }
+
+        // 채널 ID 추출
+        function extractChannelId(url) {
+            const match = url.match(/@([^/?]+)|channel\/([^/?]+)/);
+            return match ? (match[1] || match[2]) : null;
+        }
+
+        // 채널 이름 가져오기
+        async function fetchChannelName(channelId) {
+            if (!channelId.startsWith('UC')) {
+                const decodedId = decodeURIComponent(channelId);
+                const handleName = decodedId.replace('@', '');
+                
+                const searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=' + 
+                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube + '&maxResults=10';
+                
+                const searchResponse = await fetch(searchUrl);
+                const searchData = await searchResponse.json();
+                
+                if (searchData.error) throw new Error(searchData.error.message);
+                
+                if (searchData.items && searchData.items.length > 0) {
+                    const exactMatch = searchData.items.find(item => 
+                        item.snippet.channelTitle.toLowerCase().includes(handleName.toLowerCase()) ||
+                        item.snippet.title.toLowerCase().includes(handleName.toLowerCase())
+                    );
+                    
+                    if (exactMatch) return exactMatch.snippet.channelTitle;
+                    return searchData.items[0].snippet.channelTitle;
+                }
+            } else {
+                const channelUrl = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&id=' + 
+                    channelId + '&key=' + apiKeys.youtube;
+                
+                const response = await fetch(channelUrl);
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error.message);
+                if (data.items && data.items.length > 0) return data.items[0].snippet.title;
+            }
+            
+            throw new Error('채널 이름을 찾을 수 없습니다');
+        }
+
+        // 채널 삭제
+        async function removeChannel(index) {
+            try {
+                const response = await fetch(SERVER_URL + '/api/channels/' + index, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    channels.splice(index, 1);
+                    renderChannels();
+                    selectedVideos.clear();
+                    updateActionBar();
+                }
+            } catch (error) {
+                console.error('채널 삭제 오류:', error);
+                alert('채널 삭제 중 오류가 발생했습니다');
+            }
+        }
+
+        // 채널 목록 렌더링
+        function renderChannels() {
+            const container = document.getElementById('channelList');
+            
+            if (channels.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = channels.map(function(channel, index) {
+                return '<div class="channel-item">' +
+                    '<div class="channel-info">' +
+                        '<div class="channel-name">' + (channel.name || '채널 ' + (index + 1)) + '</div>' +
+                        '<div class="channel-url">' + channel.url + '</div>' +
+                    '</div>' +
+                    '<button class="btn-danger" onclick="removeChannel(' + index + ')">삭제</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        // 영상 불러오기
+        async function loadVideos() {
+            if (!apiKeys.youtube) {
+                alert('API 키 로딩 중입니다. 잠시 후 다시 시도하세요.');
+                return;
+            }
+
+            if (channels.length === 0) {
+                alert('채널을 먼저 추가해주세요');
+                return;
+            }
+
+            const container = document.getElementById('videosContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>영상을 불러오는 중...</div>';
+
+            selectedVideos.clear();
+            updateActionBar();
+
+            try {
+                const allVideos = [];
+                
+                for (let i = 0; i < channels.length; i++) {
+                    const videos = await fetchChannelVideos(channels[i]);
+                    allVideos.push.apply(allVideos, videos);
+                }
+
+                if (allVideos.length === 0) {
+                    container.innerHTML = '<div class="loading">불러온 영상이 없습니다</div>';
+                    return;
+                }
+
+                renderVideos(allVideos);
+            } catch (error) {
+                container.innerHTML = '<div class="status error">오류 발생: ' + error.message + '</div>';
+            }
+        }
+
+        // 채널 영상 가져오기
+        async function fetchChannelVideos(channel) {
+            let channelId = channel.id;
+            
+            if (!channelId.startsWith('UC')) {
+                const decodedId = decodeURIComponent(channelId);
+                const handleName = decodedId.replace('@', '');
+                
+                const searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=' +
+                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube + '&maxResults=1';
+                
+                const searchResponse = await fetch(searchUrl);
+                const searchData = await searchResponse.json();
+                
+                if (searchData.error) throw new Error(searchData.error.message);
+                
+                if (searchData.items && searchData.items.length > 0) {
+                    channelId = searchData.items[0].snippet.channelId;
+                } else {
+                    throw new Error('채널을 찾을 수 없습니다: ' + decodedId);
+                }
+            }
+
+            const videoUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+            videoUrl.searchParams.set('part', 'snippet');
+            videoUrl.searchParams.set('channelId', channelId);
+            videoUrl.searchParams.set('maxResults', '3');
+            videoUrl.searchParams.set('order', 'date');
+            videoUrl.searchParams.set('type', 'video');
+            videoUrl.searchParams.set('key', apiKeys.youtube);
+            
+            const response = await fetch(videoUrl.toString());
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message);
+
+            const videoItems = (data.items || []).slice(0, 3);
+            const videoIds = videoItems.map(function(item) { return item.id.videoId; }).join(',');
+
+            // 조회수 가져오기 (Videos API)
+            let viewCounts = {};
+            if (videoIds) {
+                const statsUrl = 'https://www.googleapis.com/youtube/v3/videos?part=statistics&id=' + videoIds + '&key=' + apiKeys.youtube;
+                const statsResponse = await fetch(statsUrl);
+                const statsData = await statsResponse.json();
+                if (statsData.items) {
+                    statsData.items.forEach(function(item) {
+                        viewCounts[item.id] = parseInt(item.statistics.viewCount || 0);
+                    });
+                }
+            }
+
+            return videoItems.map(function(item) {
+                const views = viewCounts[item.id.videoId] || 0;
+                return {
+                    id: item.id.videoId,
+                    title: item.snippet.title,
+                    channel: item.snippet.channelTitle,
+                    channelId: item.snippet.channelId,
+                    thumbnail: item.snippet.thumbnails.medium.url,
+                    publishedAt: new Date(item.snippet.publishedAt).toLocaleDateString('ko-KR'),
+                    viewCount: views
+                };
+            });
+        }
+
+        // 영상 목록 렌더링
+        function renderVideos(videos) {
+            const container = document.getElementById('videosContainer');
+            
+            const videosByChannel = {};
+            videos.forEach(function(video) {
+                if (!videosByChannel[video.channel]) {
+                    videosByChannel[video.channel] = [];
+                }
+                videosByChannel[video.channel].push(video);
+            });
+
+            let html = '';
+            Object.keys(videosByChannel).forEach(function(channelName) {
+                const channelVideos = videosByChannel[channelName];
+                
+                const channelId = channelVideos[0].channelId;
+                const channelUrl = 'https://www.youtube.com/channel/' + channelId;
+                
+                html += '<div style="margin-bottom: 2rem;">' +
+                    '<h3 style="font-size: 1.1rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">' +
+                    '<a href="' + channelUrl + '" target="_blank" style="color: var(--accent-blue); text-decoration: none;">' +
+                    channelName + ' 유튜브 바로가기 ›' +
+                    '</a>' +
+                    '</h3>' +
+                    '<div class="video-grid">' +
+                    channelVideos.map(function(video, index) {
+                        const isFirst = index === 0;
+                        const checked = isFirst ? 'checked' : '';
+                        const selectedClass = isFirst ? 'selected' : '';
+                        
+                        return '<div class="video-item ' + selectedClass + '" id="video-' + video.id + '" data-channel-id="' + video.channelId + '" onclick="toggleVideo(\'' + video.id + '\', \'' + escapeQuotes(video.title) + '\', \'' + video.channel + '\')">' +
+                            '<img src="' + video.thumbnail + '" alt="' + video.title + '" class="video-thumbnail">' +
+                            '<div class="video-info">' +
+                                '<div class="video-title">' + video.title + '</div>' +
+                                '<div class="video-meta">' +
+                                    '<span class="video-views">조회수 ' + formatViewCount(video.viewCount) + '</span>' +
+                                    '<span class="video-date">' + video.publishedAt + '</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('') +
+                    '</div>' +
+                '</div>';
+            });
+
+            container.innerHTML = html;
+            
+            Object.keys(videosByChannel).forEach(function(channelName) {
+                const channelVideos = videosByChannel[channelName];
+                if (channelVideos.length > 0) {
+                    const firstVideo = channelVideos[0];
+                    selectedVideos.set(firstVideo.id, {
+                        id: firstVideo.id,
+                        title: firstVideo.title,
+                        channel: firstVideo.channel,
+                        channelId: firstVideo.channelId,
+                        thumbnail: firstVideo.thumbnail,
+                        publishedAt: firstVideo.publishedAt
+                    });
+                }
+            });
+            
+            updateActionBar();
+        }
+
+        // 따옴표 이스케이프
+        function escapeQuotes(str) {
+            return str.replace(/'/g, "\\'");
+        }
+
+        // 영상 선택 토글
+        function toggleVideo(videoId, title, channel) {
+            const videoItem = document.getElementById('video-' + videoId);
+            
+            if (selectedVideos.has(videoId)) {
+                selectedVideos.delete(videoId);
+                videoItem.classList.remove('selected');
+            } else {
+                selectedVideos.set(videoId, {
+                    id: videoId,
+                    title: title,
+                    channel: channel,
+                    channelId: videoItem.dataset.channelId || '',
+                    thumbnail: videoItem.querySelector('.video-thumbnail').src || '',
+                    publishedAt: videoItem.querySelector('.video-date').textContent || ''
+                });
+                videoItem.classList.add('selected');
+            }
+            
+            updateActionBar();
+        }
+
+        // 액션 바 업데이트
+        function updateActionBar() {
+            var btn = document.getElementById('summarizeBtn');
+            if (btn) {
+                btn.textContent = '선택한 영상 요약하기 (' + selectedVideos.size + '개 선택됨)';
+            }
+        }
+
+        // 영상 요약
+        async function summarizeVideos() {
+            if (selectedVideos.size === 0) {
+                alert('요약할 영상을 선택해주세요');
+                return;
+            }
+
+            if (!apiKeys.gemini) {
+                alert('API 키 로딩 중입니다. 잠시 후 다시 시도하세요.');
+                return;
+            }
+
+            const summarySection = document.getElementById('summarySection');
+            const summaryContainer = document.getElementById('summaryContainer');
+            
+            summarySection.classList.remove('hidden');
+            stopAllAudio();
+            document.getElementById('playAllButton').style.display = 'none';
+            document.getElementById('restartAllButton').style.display = 'none';
+            summaryContainer.innerHTML = '<div class="loading"><div class="spinner"></div>영상을 분석하고 요약하는 중... <span id="summaryProgress">0%</span></div>';
+
+            // 부드러운 프로그레스: 자연스럽게 95%까지 서서히 올라감
+            let fakeProgress = 0;
+            const progressEl = document.getElementById('summaryProgress');
+            
+            const progressTimer = setInterval(function() {
+                // 남은 거리의 일부만큼 올라감 (점점 느려짐)
+                var remaining = 95 - fakeProgress;
+                fakeProgress += remaining * 0.02;
+                progressEl.textContent = Math.round(fakeProgress) + '%';
+            }, 200);
+
+            try {
+                const videos = Array.from(selectedVideos.values());
+
+                // 병렬 처리: 자막 + 요약을 동시에 실행
+                const summaryPromises = videos.map(function(video) {
+                    return getVideoTranscript(video.id)
+                        .then(function(transcript) {
+                            return generateSummary(video, transcript);
+                        })
+                        .then(function(summary) {
+                            return { video: video, summary: summary };
+                        });
+                });
+
+                const summaries = await Promise.all(summaryPromises);
+                
+                clearInterval(progressTimer);
+                progressEl.textContent = '100%';
+                await new Promise(function(r) { setTimeout(r, 400); });
+
+                renderSummaries(summaries);
+            } catch (error) {
+                clearInterval(progressTimer);
+                summaryContainer.innerHTML = '<div class="status error">요약 생성 중 오류 발생: ' + error.message + '</div>';
+            }
+        }
+
+        // 자막 가져오기
+        async function getVideoTranscript(videoId) {
+            try {
+                const response = await fetch(SERVER_URL + '/api/transcript/' + videoId);
+                
+                if (!response.ok) {
+                    throw new Error('자막을 가져올 수 없습니다');
+                }
+                
+                const data = await response.json();
+                
+                if (!data.transcript) {
+                    throw new Error('자막이 없습니다');
+                }
+                
+                console.log('자막 가져오기 성공:', data.transcript.length + '자');
+                return data.transcript;
+            } catch (error) {
+                console.error('자막 가져오기 실패:', error);
+                throw new Error('자막을 가져오는데 실패했습니다: ' + error.message);
+            }
+        }
+
+        // AI 요약 생성
+        async function generateSummary(video, transcript, retryCount) {
+            retryCount = retryCount || 0;
+            
+            const prompt = '다음은 투자 관련 YouTube 영상의 자막입니다:\n\n' +
+                '제목: ' + video.title + '\n' +
+                '채널: ' + video.channel + '\n' +
+                '자막 내용:\n' + transcript + '\n\n' +
+                '# 목적\n' +
+                '이 영상에서 투자자가 반드시 알아야 할 핵심 정보만 요약해주세요.\n' +
+                '농담, 광고, 인사말, 투자와 무관한 내용은 모두 제외하세요.\n' +
+                '**특정 기업이나 특정 섹터에 대한 의견은 절대 생략하지 말고 반드시 포함하세요.**\n\n' +
+                '# 요약 규칙\n' +
+                '1. **구어체** 사용 (입니다, 합니다 등)\n' +
+                '2. **괄호 () 절대 금지** - TTS로 읽을 때 어색함\n' +
+                '3. 각 카테고리당 **2-3문장 이내**로 간결하게\n' +
+                '4. **구체적인 수치, 날짜, 종목명, 섹터명** 포함\n' +
+                '5. **특정 기업명이나 섹터명이 언급되면 반드시 요약에 포함**\n' +
+                '6. 해당 내용 없으면 "해당 없음"\n\n' +
+                '# 요약 카테고리\n\n' +
+                '## 1. 시장 분석\n' +
+                '- 주식 시장 전반적인 흐름, 추세, 전망\n' +
+                '- 특정 섹터의 시장 전망\n\n' +
+                '## 2. 종목 추천\n' +
+                '- 특정 기업/종목 및 섹터 투자 의견\n' +
+                '- 매수/매도/보유 의견 포함\n\n' +
+                '## 3. 리스크/주의사항\n' +
+                '- 투자 시 주의해야 할 위험 요소\n' +
+                '- 특정 기업이나 섹터의 리스크\n\n' +
+                '## 4. 기타 인사이트\n' +
+                '- 투자 전략, 포트폴리오 구성 팁\n' +
+                '- 특정 기업이나 섹터 관련 인사이트\n\n' +
+                '위 형식으로 투자 핵심 정보만 간결하게 요약해주세요.';
+
+            const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKeys.gemini, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.error) {
+                // 할당량 초과 시 자동 재시도 (최대 3회)
+                if (data.error.code === 429 && retryCount < 3) {
+                    var waitSec = 20 + (retryCount * 10);
+                    var progressEl = document.getElementById('summaryProgress');
+                    
+                    for (var s = waitSec; s > 0; s--) {
+                        if (progressEl) progressEl.textContent = s + '초 후 재시도...';
+                        await new Promise(function(r) { setTimeout(r, 1000); });
+                    }
+                    
+                    return generateSummary(video, transcript, retryCount + 1);
+                }
+                throw new Error(data.error.message);
+            }
+
+            const summaryText = data.candidates[0].content.parts[0].text;
+            return parseSummary(summaryText);
+        }
+
+        // 요약 파싱
+        function parseSummary(text) {
+            const categories = {
+                marketAnalysis: '',
+                stockRecommendation: '',
+                risk: '',
+                insight: ''
+            };
+
+            const lines = text.split('\n');
+            let currentCategory = null;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.includes('시장 분석')) {
+                    currentCategory = 'marketAnalysis';
+                } else if (line.includes('종목 추천')) {
+                    currentCategory = 'stockRecommendation';
+                } else if (line.includes('리스크') || line.includes('주의사항')) {
+                    currentCategory = 'risk';
+                } else if (line.includes('기타') || line.includes('인사이트')) {
+                    currentCategory = 'insight';
+                } else if (currentCategory && line.trim()) {
+                    categories[currentCategory] += line + '\n';
+                }
+            }
+
+            return categories;
+        }
+
+        // 요약 결과 렌더링
+        function renderSummaries(summaries) {
+            const container = document.getElementById('summaryContainer');
+            
+            ttsCache = {}; // 새 요약 시 음성 캐시 초기화
+            window.allSummaries = summaries;
+            
+            container.innerHTML = summaries.map(function(item, idx) {
+                window['summaryData_' + idx] = { video: item.video, summary: item.summary };
+                
+                return '<div class="summary-item">' +
+                    '<div class="summary-header">' +
+                        '<div>' +
+                            '<div class="summary-video-title">' + item.video.title + '</div>' +
+                            '<div class="summary-channel"><a href="https://www.youtube.com/channel/' + item.video.channelId + '" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">' + item.video.channel + ' ›</a></div>' +
+                        '</div>' +
+                        '<div style="display: flex; gap: 0.5rem; align-items: center;">' +
+                            '<button class="btn-play" id="play-' + idx + '" onclick="playFullSummaryById(' + idx + ')">' +
+                                '🎧 듣기' +
+                            '</button>' +
+                            '<button class="btn-secondary" onclick="restartSummary(' + idx + ')" style="padding: 8px 16px; font-size: 14px;">' +
+                                '🔄 처음부터' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="summary-content">' +
+                        '<div class="summary-category market-analysis">' +
+                            '<div class="category-title">' +
+                                '<span class="category-icon">📊</span>' +
+                                '시장 분석' +
+                            '</div>' +
+                            '<div class="category-content">' + (item.summary.marketAnalysis || '해당 없음') + '</div>' +
+                        '</div>' +
+                        '<div class="summary-category stock-recommendation">' +
+                            '<div class="category-title">' +
+                                '<span class="category-icon">💼</span>' +
+                                '종목 추천' +
+                            '</div>' +
+                            '<div class="category-content">' + (item.summary.stockRecommendation || '해당 없음') + '</div>' +
+                        '</div>' +
+                        '<div class="summary-category risk">' +
+                            '<div class="category-title">' +
+                                '<span class="category-icon">⚠️</span>' +
+                                '리스크/주의사항' +
+                            '</div>' +
+                            '<div class="category-content">' + (item.summary.risk || '해당 없음') + '</div>' +
+                        '</div>' +
+                        '<div class="summary-category insight">' +
+                            '<div class="category-title">' +
+                                '<span class="category-icon">💡</span>' +
+                                '기타 인사이트' +
+                            '</div>' +
+                            '<div class="category-content">' + (item.summary.insight || '해당 없음') + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            
+            document.getElementById('playAllButton').style.display = 'block';
+            document.getElementById('restartAllButton').style.display = 'block';
+        }
+
+        // TTS: 개별 요약 텍스트 생성
+        function buildSummaryText(summary, videoTitle, channelName) {
+            let fullText = channelName + ' 채널의 ' + videoTitle + ' 요약입니다. ';
+            
+            if (summary.marketAnalysis && summary.marketAnalysis !== '해당 없음') {
+                fullText += '시장 분석입니다. ' + summary.marketAnalysis + ' ';
+            }
+            if (summary.stockRecommendation && summary.stockRecommendation !== '해당 없음') {
+                fullText += '종목 추천 관련입니다. ' + summary.stockRecommendation + ' ';
+            }
+            if (summary.risk && summary.risk !== '해당 없음') {
+                fullText += '주의사항입니다. ' + summary.risk + ' ';
+            }
+            if (summary.insight && summary.insight !== '해당 없음') {
+                fullText += '기타 인사이트입니다. ' + summary.insight;
+            }
+            return fullText;
+        }
+
+        // TTS: 개별 요약 재생
+        function playFullSummaryById(idx) {
+            if (ttsGenerating) return;
+            const button = event.target;
+            const data = window['summaryData_' + idx];
+            if (!data) return;
+            
+            if (toggleAudio(button, '🎧 듣기')) return;
+            if (isSpeaking && !button.classList.contains('playing')) stopAllAudio();
+            
+            const fullText = buildSummaryText(data.summary, data.video.title, data.video.channel);
+            edgeTTS(fullText, button, '🎧 듣기', 'summary_' + idx);
+        }
+
+        // TTS: 처음부터 재생
+        function restartSummary(idx) {
+            stopAllAudio();
+            
+            const playButton = document.getElementById('play-' + idx);
+            const data = window['summaryData_' + idx];
+            if (!data || !playButton) return;
+            
+            const fullText = buildSummaryText(data.summary, data.video.title, data.video.channel);
+            edgeTTS(fullText, playButton, '🎧 듣기', 'summary_' + idx);
+        }
+
+        // 전체 듣기: 개별 음성을 순차적으로 재생 (캐시 공유)
+        async function playAllSummaries() {
+            if (ttsGenerating) return;
+            const button = document.getElementById('playAllButton');
+            
+            if (toggleAudio(button, '🔊 전체 듣기')) return;
+            if (isSpeaking && !button.classList.contains('playing')) stopAllAudio();
+
+            if (!window.allSummaries || window.allSummaries.length === 0) return;
+
+            isPlayingAll = true;
+            playAllIndex = 0;
+            button.textContent = '⏸️ 정지';
+            button.classList.add('playing');
+            
+            playNextInQueue(button);
+        }
+
+        async function playNextInQueue(allButton) {
+            if (!isPlayingAll || playAllIndex >= window.allSummaries.length) {
+                allButton.textContent = '🔊 전체 듣기';
+                allButton.classList.remove('playing');
+                isPlayingAll = false;
+                playAllIndex = -1;
+                isSpeaking = false;
+                isPaused = false;
+                currentAudio = null;
+                return;
+            }
+
+            const idx = playAllIndex;
+            const item = window.allSummaries[idx];
+            const cacheKey = 'summary_' + idx;
+            const fullText = buildSummaryText(item.summary, item.video.title, item.video.channel);
+
+            try {
+                // 캐시에 없으면 생성
+                if (!ttsCache[cacheKey]) {
+                    allButton.classList.add('loading');
+                    allButton.innerHTML = '<span class="progress-fill"></span>⏳ 음성 생성 중... (' + (idx + 1) + '/' + window.allSummaries.length + ')';
+                    var fill = allButton.querySelector('.progress-fill');
+                    var fakeProg = 0;
+                    var progTimer = setInterval(function() {
+                        fakeProg += (95 - fakeProg) * 0.03;
+                        if (fill) fill.style.width = fakeProg + '%';
+                    }, 200);
+                    
+                    ttsGenerating = true;
+                    ttsAbortController = new AbortController();
+                    const response = await fetch(SERVER_URL + '/api/tts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: fullText }),
+                        signal: ttsAbortController.signal
+                    });
+                    
+                    clearInterval(progTimer);
+                    ttsAbortController = null;
+                    ttsGenerating = false;
+                    if (!response.ok) throw new Error('TTS 생성 실패');
+                    const blob = await response.blob();
+                    ttsCache[cacheKey] = URL.createObjectURL(blob);
+                }
+
+                if (!isPlayingAll) return; // 중간에 중지된 경우
+
+                allButton.classList.remove('loading');
+                removeProgressFill(allButton);
+                const audio = new Audio(ttsCache[cacheKey]);
+                currentAudio = audio;
+                isSpeaking = true;
+                isPaused = false;
+                allButton.textContent = '⏸️ 정지 (' + (idx + 1) + '/' + window.allSummaries.length + ')';
+
+                audio.onended = function() {
+                    playAllIndex++;
+                    playNextInQueue(allButton);
+                };
+
+                audio.onerror = function() {
+                    playAllIndex++;
+                    playNextInQueue(allButton);
+                };
+
+                audio.play();
+
+            } catch (e) {
+                if (e.name === 'AbortError') { ttsGenerating = false; return; }
+                console.error('전체 듣기 오류:', e);
+                ttsGenerating = false;
+                playAllIndex++;
+                playNextInQueue(allButton);
+            }
+        }
+
+        // TTS: 전체 듣기 처음부터
+        function restartAllSummaries() {
+            stopAllAudio();
+            isPlayingAll = false;
+            playAllIndex = -1;
+            playAllSummaries();
+        }
+    </script>
+</body>
+</html>
