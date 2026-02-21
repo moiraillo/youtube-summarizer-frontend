@@ -1,54 +1,91 @@
 export default async function handler(req, res) {
-    const { videoId } = req.query;
+    const { videoId, debug } = req.query;
 
     if (!videoId) {
         return res.status(400).json({ error: 'videoId required' });
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
 
     try {
-        // YouTube 영상 페이지 HTML 가져오기
+        // YouTube 페이지 가져오기
         const pageResponse = await fetch('https://www.youtube.com/watch?v=' + videoId, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Accept': 'text/html,application/xhtml+xml'
+                'Accept': 'text/html,application/xhtml+xml',
+                'Cookie': 'CONSENT=YES+1'
             }
         });
 
-        if (!pageResponse.ok) {
-            throw new Error('YouTube 페이지 로드 실패: ' + pageResponse.status);
-        }
-
         const html = await pageResponse.text();
 
-        // ytInitialPlayerResponse에서 자막 트랙 추출
-        const playerRegex = /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s;
-        const playerMatch = html.match(playerRegex);
-        
+        // 디버그 모드
+        if (debug === '1') {
+            const hasCaptions = html.includes('captionTracks');
+            const hasPlayerResponse = html.includes('ytInitialPlayerResponse');
+            const hasTimedText = html.includes('timedtext');
+            const pageLength = html.length;
+            const titleMatch = html.match(/<title>(.*?)<\/title>/);
+
+            return res.status(200).json({
+                debug: true,
+                pageLength,
+                title: titleMatch ? titleMatch[1] : 'not found',
+                hasCaptions,
+                hasPlayerResponse,
+                hasTimedText,
+                snippet: html.substring(0, 500)
+            });
+        }
+
+        // captionTracks를 여러 방식으로 추출 시도
         let tracks = [];
 
+        // 방법 1: ytInitialPlayerResponse
+        const playerRegex = /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var|let|const)/s;
+        const playerMatch = html.match(playerRegex);
         if (playerMatch) {
             try {
                 const playerData = JSON.parse(playerMatch[1]);
                 tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-            } catch (e) {
-                console.error('playerResponse 파싱 실패:', e.message);
+            } catch (e) {}
+        }
+
+        // 방법 2: 좀 더 느슨한 정규식
+        if (tracks.length === 0) {
+            const playerRegex2 = /ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/s;
+            const playerMatch2 = html.match(playerRegex2);
+            if (playerMatch2) {
+                try {
+                    const playerData = JSON.parse(playerMatch2[1]);
+                    tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+                } catch (e) {}
             }
         }
 
-        // 못 찾으면 captionTracks 직접 추출
+        // 방법 3: captionTracks 직접 추출
         if (tracks.length === 0) {
-            const captionRegex = /"captionTracks":\s*(\[.*?\])\s*,/;
-            const match = html.match(captionRegex);
-            if (match) {
+            const captionRegex = /"captionTracks":(\[.*?\])/;
+            const captionMatch = html.match(captionRegex);
+            if (captionMatch) {
                 try {
-                    tracks = JSON.parse(match[1].replace(/\\u0026/g, '&'));
-                } catch (e) {
-                    console.error('captionTracks 파싱 실패:', e.message);
-                }
+                    tracks = JSON.parse(captionMatch[1].replace(/\\u0026/g, '&'));
+                } catch (e) {}
+            }
+        }
+
+        // 방법 4: baseUrl 직접 추출
+        if (tracks.length === 0) {
+            const urlRegex = /"baseUrl":"(https:\/\/www\.youtube\.com\/api\/timedtext[^"]+)"/g;
+            let urlMatch;
+            while ((urlMatch = urlRegex.exec(html)) !== null) {
+                let url = urlMatch[1].replace(/\\u0026/g, '&');
+                const langMatch = url.match(/lang=([a-z]{2})/);
+                tracks.push({
+                    baseUrl: url,
+                    languageCode: langMatch ? langMatch[1] : 'unknown'
+                });
             }
         }
 
@@ -63,8 +100,6 @@ export default async function handler(req, res) {
             if (found) { trackUrl = found.baseUrl; break; }
         }
         if (!trackUrl) trackUrl = tracks[0].baseUrl;
-
-        // URL 디코딩
         trackUrl = trackUrl.replace(/\\u0026/g, '&');
 
         // 자막 XML 가져오기
@@ -75,16 +110,11 @@ export default async function handler(req, res) {
         });
 
         const xmlText = await captionResponse.text();
-
-        // XML에서 텍스트 추출
         const textMatches = xmlText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
         const texts = textMatches.map(t => {
             return t.replace(/<[^>]+>/g, '')
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&#39;/g, "'")
-                .replace(/&quot;/g, '"')
+                .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
                 .trim();
         }).filter(t => t);
 
