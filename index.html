@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -536,7 +537,8 @@
             <div id="g_id_onload"
                  data-client_id="959978801803-0o94g9m7irav77nkl8hu8l90q4i4pklv.apps.googleusercontent.com"
                  data-callback="handleCredentialResponse"
-                 data-auto_prompt="false">
+                 data-auto_prompt="false"
+                 data-use_fedcm_for_prompt="true">
             </div>
             <div class="g_id_signin"
                  data-type="standard"
@@ -622,7 +624,7 @@
         let ttsAbortController = null; // TTS fetch 취소용
         let ttsGenerating = false; // TTS 생성 중 플래그
 
-        const SERVER_URL = 'https://youtube-summarizer-backend-api.onrender.com';
+        const SERVER_URL = 'http://localhost:5001';
 
         // 조회수 포맷 (예: 1.2만회, 345회)
         function formatViewCount(count) {
