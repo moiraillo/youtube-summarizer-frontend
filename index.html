@@ -997,23 +997,15 @@
                 const decodedId = decodeURIComponent(channelId);
                 const handleName = decodedId.replace('@', '');
                 
-                const searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=' + 
-                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube + '&maxResults=10';
+                // channels.list?forHandle 사용 (1 유닛, search.list 대비 100배 절약)
+                const channelUrl = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&forHandle=' + 
+                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube;
                 
-                const searchResponse = await fetch(searchUrl);
-                const searchData = await searchResponse.json();
+                const response = await fetch(channelUrl);
+                const data = await response.json();
                 
-                if (searchData.error) throw new Error(searchData.error.message);
-                
-                if (searchData.items && searchData.items.length > 0) {
-                    const exactMatch = searchData.items.find(item => 
-                        item.snippet.channelTitle.toLowerCase().includes(handleName.toLowerCase()) ||
-                        item.snippet.title.toLowerCase().includes(handleName.toLowerCase())
-                    );
-                    
-                    if (exactMatch) return exactMatch.snippet.channelTitle;
-                    return searchData.items[0].snippet.channelTitle;
-                }
+                if (data.error) throw new Error(data.error.message);
+                if (data.items && data.items.length > 0) return data.items[0].snippet.title;
             } else {
                 const channelUrl = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&id=' + 
                     channelId + '&key=' + apiKeys.youtube;
@@ -1111,42 +1103,44 @@
         async function fetchChannelVideos(channel) {
             let channelId = channel.id;
             
+            // 핸들 → 채널 ID 변환 (channels.list 사용, 1 유닛)
             if (!channelId.startsWith('UC')) {
                 const decodedId = decodeURIComponent(channelId);
                 const handleName = decodedId.replace('@', '');
                 
-                const searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=' +
-                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube + '&maxResults=1';
+                const chUrl = 'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&forHandle=' +
+                    encodeURIComponent(handleName) + '&key=' + apiKeys.youtube;
                 
-                const searchResponse = await fetch(searchUrl);
-                const searchData = await searchResponse.json();
+                const chResponse = await fetch(chUrl);
+                const chData = await chResponse.json();
                 
-                if (searchData.error) throw new Error(searchData.error.message);
+                if (chData.error) throw new Error(chData.error.message);
                 
-                if (searchData.items && searchData.items.length > 0) {
-                    channelId = searchData.items[0].snippet.channelId;
+                if (chData.items && chData.items.length > 0) {
+                    channelId = chData.items[0].id;
                 } else {
                     throw new Error('채널을 찾을 수 없습니다: ' + decodedId);
                 }
             }
 
-            const videoUrl = new URL('https://www.googleapis.com/youtube/v3/search');
-            videoUrl.searchParams.set('part', 'snippet');
-            videoUrl.searchParams.set('channelId', channelId);
-            videoUrl.searchParams.set('maxResults', '3');
-            videoUrl.searchParams.set('order', 'date');
-            videoUrl.searchParams.set('type', 'video');
-            videoUrl.searchParams.set('key', apiKeys.youtube);
+            // 업로드 플레이리스트 ID = UC → UU 변환
+            const uploadsPlaylistId = 'UU' + channelId.substring(2);
+
+            // playlistItems.list 사용 (1 유닛, search.list 대비 100배 절약)
+            const playlistUrl = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet' +
+                '&playlistId=' + uploadsPlaylistId +
+                '&maxResults=3' +
+                '&key=' + apiKeys.youtube;
             
-            const response = await fetch(videoUrl.toString());
+            const response = await fetch(playlistUrl);
             const data = await response.json();
             
             if (data.error) throw new Error(data.error.message);
 
             const videoItems = (data.items || []).slice(0, 3);
-            const videoIds = videoItems.map(function(item) { return item.id.videoId; }).join(',');
+            const videoIds = videoItems.map(function(item) { return item.snippet.resourceId.videoId; }).join(',');
 
-            // 조회수 가져오기 (Videos API)
+            // 조회수 가져오기 (Videos API, 1 유닛)
             let viewCounts = {};
             if (videoIds) {
                 const statsUrl = 'https://www.googleapis.com/youtube/v3/videos?part=statistics&id=' + videoIds + '&key=' + apiKeys.youtube;
@@ -1160,9 +1154,10 @@
             }
 
             return videoItems.map(function(item) {
-                const views = viewCounts[item.id.videoId] || 0;
+                const videoId = item.snippet.resourceId.videoId;
+                const views = viewCounts[videoId] || 0;
                 return {
-                    id: item.id.videoId,
+                    id: videoId,
                     title: item.snippet.title,
                     channel: item.snippet.channelTitle,
                     channelId: item.snippet.channelId,
@@ -1316,17 +1311,43 @@
                             return generateSummary(video, transcript);
                         })
                         .then(function(summary) {
-                            return { video: video, summary: summary };
+                            return { video: video, summary: summary, success: true };
+                        })
+                        .catch(function(err) {
+                            console.log('영상 처리 실패:', video.title, err.message);
+                            return { video: video, summary: null, success: false, error: err.message };
                         });
                 });
 
-                const summaries = await Promise.all(summaryPromises);
+                const results = await Promise.all(summaryPromises);
+                
+                // 성공/실패 분리
+                const summaries = results.filter(function(r) { return r.success; });
+                const failed = results.filter(function(r) { return !r.success; });
                 
                 clearInterval(progressTimer);
                 progressEl.textContent = '100%';
                 await new Promise(function(r) { setTimeout(r, 400); });
 
-                renderSummaries(summaries);
+                if (summaries.length > 0) {
+                    renderSummaries(summaries);
+                }
+
+                // 자막 없는 영상 안내 메시지
+                if (failed.length > 0) {
+                    var failedMsg = failed.map(function(f) {
+                        return '· \'' + f.video.title + '\' 은(는) 자막이 없어 요약할 수 없습니다';
+                    }).join('<br>');
+                    var failedDiv = document.createElement('div');
+                    failedDiv.className = 'status';
+                    failedDiv.style.cssText = 'background: #fff3cd; color: #856404; border: 1px solid #ffc107; margin-top: 1rem; text-align: left; line-height: 1.8;';
+                    failedDiv.innerHTML = failedMsg;
+                    summaryContainer.appendChild(failedDiv);
+                }
+
+                if (summaries.length === 0) {
+                    summaryContainer.innerHTML = '<div class="status" style="background: #fff3cd; color: #856404; border: 1px solid #ffc107;">선택한 영상 모두 자막이 없어 요약할 수 없습니다</div>';
+                }
             } catch (error) {
                 clearInterval(progressTimer);
                 summaryContainer.innerHTML = '<div class="status error">요약 생성 중 오류 발생: ' + error.message + '</div>';
