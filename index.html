@@ -614,6 +614,7 @@
         // 전역 상태
         let currentUser = null;
         let channels = [];
+        let authToken = null;
         let apiKeys = { youtube: '', gemini: '' };
         let selectedVideos = new Map();
         let currentAudio = null;
@@ -635,6 +636,13 @@
             return count + '회';
         }
 
+        // 인증 헤더 생성 헬퍼
+        function authHeaders() {
+            var headers = { 'Content-Type': 'application/json' };
+            if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+            return headers;
+        }
+
         // Google 로그인 콜백
         function handleCredentialResponse(response) {
             const credential = response.credential;
@@ -644,12 +652,12 @@
             fetch(SERVER_URL + '/api/auth/google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({ token: credential })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    authToken = data.token;
                     currentUser = data.user;
                     channels = data.user.channels || [];
                     showMainApp();
@@ -670,9 +678,10 @@
         function logout() {
             fetch(SERVER_URL + '/api/auth/logout', {
                 method: 'POST',
-                credentials: 'include'
+                headers: authHeaders()
             })
             .then(() => {
+                authToken = null;
                 currentUser = null;
                 channels = [];
                 selectedVideos.clear();
@@ -696,7 +705,7 @@
         // API 키 로드
         function loadApiKeys() {
             return fetch(SERVER_URL + '/api/keys', {
-                credentials: 'include'
+                headers: authHeaders()
             })
             .then(res => res.json())
             .then(data => {
@@ -956,8 +965,7 @@
                 
                 const response = await fetch(SERVER_URL + '/api/channels', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
+                    headers: authHeaders(),
                     body: JSON.stringify({ url: url, id: channelId, name: channelName })
                 });
 
@@ -1025,7 +1033,7 @@
             try {
                 const response = await fetch(SERVER_URL + '/api/channels/' + index, {
                     method: 'DELETE',
-                    credentials: 'include'
+                    headers: authHeaders()
                 });
 
                 const data = await response.json();
