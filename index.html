@@ -129,11 +129,8 @@
         }
 
         .settings-section {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 1.5rem;
+            padding: 0;
             margin-bottom: 1.5rem;
-            border: 1px solid var(--border-color);
         }
 
         .section-title {
@@ -1262,6 +1259,9 @@
             document.getElementById('playAllButton').style.display = 'none';
             document.getElementById('restartAllButton').style.display = 'none';
             summaryContainer.innerHTML = '<div class="loading"><div class="spinner"></div>영상을 분석하고 요약하는 중... <span id="summaryProgress">0%</span></div>';
+            
+            // 스크롤을 하단으로 이동
+            setTimeout(function() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
 
             // 부드러운 프로그레스: 자연스럽게 95%까지 서서히 올라감
             let fakeProgress = 0;
