@@ -586,7 +586,7 @@
 
             <!-- 플로팅 요약 버튼 -->
             <div id="actionBar" class="floating-action-bar hidden">
-                <button class="btn-primary floating-summarize-btn" id="summarizeBtn" onclick="summarizeVideos()">선택한 영상 요약하기 (0개 선택됨)</button>
+                <button class="btn-primary floating-summarize-btn" id="summarizeBtn" onclick="summarizeVideos()">요약할 영상 선택하기 (0개)</button>
             </div>
 
             <!-- 요약 결과 -->
@@ -1165,9 +1165,8 @@
                     '</h3>' +
                     '<div class="video-grid">' +
                     channelVideos.map(function(video, index) {
-                        const isFirst = index === 0;
-                        const checked = isFirst ? 'checked' : '';
-                        const selectedClass = isFirst ? 'selected' : '';
+                        const checked = '';
+                        const selectedClass = '';
                         
                         return '<div class="video-item ' + selectedClass + '" id="video-' + video.id + '" data-channel-id="' + video.channelId + '" onclick="toggleVideo(\'' + video.id + '\', \'' + escapeQuotes(video.title) + '\', \'' + video.channel + '\')">' +
                             '<img src="' + video.thumbnail + '" alt="' + video.title + '" class="video-thumbnail">' +
@@ -1186,20 +1185,7 @@
 
             container.innerHTML = html;
             
-            Object.keys(videosByChannel).forEach(function(channelName) {
-                const channelVideos = videosByChannel[channelName];
-                if (channelVideos.length > 0) {
-                    const firstVideo = channelVideos[0];
-                    selectedVideos.set(firstVideo.id, {
-                        id: firstVideo.id,
-                        title: firstVideo.title,
-                        channel: firstVideo.channel,
-                        channelId: firstVideo.channelId,
-                        thumbnail: firstVideo.thumbnail,
-                        publishedAt: firstVideo.publishedAt
-                    });
-                }
-            });
+            // 자동 선택 없음
             
             updateActionBar();
         }
@@ -1235,7 +1221,7 @@
         function updateActionBar() {
             var btn = document.getElementById('summarizeBtn');
             if (btn) {
-                btn.textContent = '선택한 영상 요약하기 (' + selectedVideos.size + '개 선택됨)';
+                btn.textContent = selectedVideos.size > 0 ? '선택한 영상 요약하기 (' + selectedVideos.size + '개)' : '요약할 영상 선택하기 (0개)';
             }
         }
 
