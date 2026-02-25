@@ -1325,18 +1325,24 @@
         const TRANSCRIPT_WORKER_URL = 'https://youtube-transcript.moiraillo.workers.dev';
 
         async function getVideoTranscript(videoId) {
-            // 방법 1: Cloudflare Worker 프록시
-            try {
-                var response = await fetch(TRANSCRIPT_WORKER_URL + '/?videoId=' + videoId);
-                if (response.ok) {
-                    var data = await response.json();
-                    if (data.transcript) {
-                        console.log('Worker 자막 가져오기 성공:', data.transcript.length + '자');
-                        return data.transcript;
+            // 방법 1: Cloudflare Worker 프록시 (최대 3회 재시도)
+            for (var attempt = 0; attempt < 3; attempt++) {
+                try {
+                    if (attempt > 0) {
+                        console.log('Worker 재시도 ' + (attempt + 1) + '/3...');
+                        await new Promise(function(r) { setTimeout(r, 1000 * attempt); });
                     }
+                    var response = await fetch(TRANSCRIPT_WORKER_URL + '/?videoId=' + videoId);
+                    if (response.ok) {
+                        var data = await response.json();
+                        if (data.transcript) {
+                            console.log('Worker 자막 가져오기 성공:', data.transcript.length + '자');
+                            return data.transcript;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Worker 자막 시도 ' + (attempt + 1) + ' 실패:', e.message);
                 }
-            } catch (e) {
-                console.log('Worker 자막 실패:', e.message);
             }
 
             // 방법 2: 백엔드 서버 경유 (폴백)
