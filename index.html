@@ -1366,12 +1366,17 @@
         async function generateSummary(video, transcript, retryCount) {
             retryCount = retryCount || 0;
             
-            const prompt = '다음은 투자 관련 YouTube 영상의 자막입니다:\n\n' +
+            const today = new Date();
+            const dateStr = today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일';
+            
+            const prompt = '오늘 날짜: ' + dateStr + '\n\n' +
+                '다음은 투자 관련 YouTube 영상의 자막입니다:\n\n' +
                 '제목: ' + video.title + '\n' +
                 '채널: ' + video.channel + '\n' +
                 '자막 내용:\n' + transcript + '\n\n' +
                 '# 목적\n' +
                 '이 영상에서 투자자가 반드시 알아야 할 핵심 정보만 요약해주세요.\n' +
+                '영상에서 언급하는 시점(올해, 작년, 최근 등)은 위의 오늘 날짜를 기준으로 정확한 연도를 사용하세요.\n' +
                 '농담, 광고, 인사말, 투자와 무관한 내용은 모두 제외하세요.\n' +
                 '**특정 기업이나 특정 섹터에 대한 의견은 절대 생략하지 말고 반드시 포함하세요.**\n\n' +
                 '# 요약 규칙\n' +
