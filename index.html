@@ -36,6 +36,12 @@
             padding: 2rem;
         }
 
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -528,7 +534,7 @@
     <div class="container">
         <!-- 로그인 화면 -->
         <div id="loginScreen" class="login-section">
-            <h1 class="login-title">📺 YouTube 투자 영상 요약기</h1>
+            <h1 class="login-title">YouTube 투자 영상 요약기</h1>
             <p class="login-subtitle">Google 계정으로 로그인하여 시작하세요</p>
             <div id="g_id_onload"
                  data-client_id="959978801803-0o94g9m7irav77nkl8hu8l90q4i4pklv.apps.googleusercontent.com"
@@ -551,7 +557,7 @@
         <div id="mainApp" class="hidden">
             <div class="header">
                 <div class="header-left">
-                    <h1>📺 YouTube 투자 영상 요약기</h1>
+                    <h1>YouTube 투자 영상 요약기</h1>
                     <p class="subtitle">AI가 투자 관련 YouTube 영상을 자동으로 요약하고 음성으로 들려드립니다</p>
                 </div>
                 <div class="user-info">
@@ -565,7 +571,7 @@
 
             <!-- 채널 관리 -->
             <div class="settings-section">
-                <div class="section-title">📺 채널 관리</div>
+                <div class="section-title">채널 관리</div>
                 <div class="input-group">
                     <label for="channelUrl">유튜브 채널 URL</label>
                     <div style="display: flex; gap: 0.5rem;">
@@ -579,7 +585,7 @@
 
             <!-- 영상 선택 -->
             <div class="settings-section">
-                <div class="section-title">🎬 영상 선택</div>
+                <div class="section-title">영상 선택</div>
                 <div id="videosContainer"></div>
             </div>
 
@@ -594,10 +600,10 @@
                     <div class="section-title">📝 요약 결과</div>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button class="btn-play" id="playAllButton" onclick="playAllSummaries()" style="display: none;">
-                            🔊 전체 듣기
+                            전체 듣기
                         </button>
                         <button class="btn-secondary" id="restartAllButton" onclick="restartAllSummaries()" style="display: none; padding: 8px 16px; font-size: 14px;">
-                            🔄 처음부터
+                            처음부터
                         </button>
                     </div>
                 </div>
@@ -728,7 +734,7 @@
                     currentAudio = audio;
                     isSpeaking = true;
                     isPaused = false;
-                    button.textContent = '⏸️ 정지';
+                    button.textContent = '정지';
                     button.classList.add('playing');
                     button.classList.remove('loading');
                     removeProgressFill(button);
@@ -799,7 +805,7 @@
                 // 프로그레스 바 제거, 재생 상태로 전환
                 button.classList.remove('loading');
                 removeProgressFill(button);
-                button.textContent = '⏸️ 정지';
+                button.textContent = '정지';
                 
                 audio.onended = function() {
                     button.textContent = defaultLabel;
@@ -840,14 +846,14 @@
             
             if (isPaused && button.classList.contains('playing')) {
                 currentAudio.play();
-                button.textContent = '⏸️ 정지';
+                button.textContent = '정지';
                 isPaused = false;
                 return true;
             }
             
             if (isSpeaking && button.classList.contains('playing') && !isPaused) {
                 currentAudio.pause();
-                button.textContent = '▶️ 재개';
+                button.textContent = '재개';
                 isPaused = true;
                 return true;
             }
@@ -876,7 +882,7 @@
             document.querySelectorAll('.btn-play.playing').forEach(function(btn) {
                 btn.classList.remove('playing', 'loading');
                 removeProgressFill(btn);
-                btn.textContent = btn.id === 'playAllButton' ? '🔊 전체 듣기' : '🎧 듣기';
+                btn.textContent = btn.id === 'playAllButton' ? '전체 듣기' : '듣기';
             });
             isSpeaking = false;
             isPaused = false;
@@ -1484,38 +1490,38 @@
                         '</div>' +
                         '<div style="display: flex; gap: 0.5rem; align-items: center;">' +
                             '<button class="btn-play" id="play-' + idx + '" onclick="playFullSummaryById(' + idx + ')">' +
-                                '🎧 듣기' +
+                                '듣기' +
                             '</button>' +
                             '<button class="btn-secondary" onclick="restartSummary(' + idx + ')" style="padding: 8px 16px; font-size: 14px;">' +
-                                '🔄 처음부터' +
+                                '처음부터' +
                             '</button>' +
                         '</div>' +
                     '</div>' +
                     '<div class="summary-content">' +
                         '<div class="summary-category market-analysis">' +
                             '<div class="category-title">' +
-                                '<span class="category-icon">📊</span>' +
+                                '' +
                                 '시장 분석' +
                             '</div>' +
                             '<div class="category-content">' + (item.summary.marketAnalysis || '해당 없음') + '</div>' +
                         '</div>' +
                         '<div class="summary-category stock-recommendation">' +
                             '<div class="category-title">' +
-                                '<span class="category-icon">💼</span>' +
+                                '' +
                                 '종목 추천' +
                             '</div>' +
                             '<div class="category-content">' + (item.summary.stockRecommendation || '해당 없음') + '</div>' +
                         '</div>' +
                         '<div class="summary-category risk">' +
                             '<div class="category-title">' +
-                                '<span class="category-icon">⚠️</span>' +
+                                '' +
                                 '리스크/주의사항' +
                             '</div>' +
                             '<div class="category-content">' + (item.summary.risk || '해당 없음') + '</div>' +
                         '</div>' +
                         '<div class="summary-category insight">' +
                             '<div class="category-title">' +
-                                '<span class="category-icon">💡</span>' +
+                                '' +
                                 '기타 인사이트' +
                             '</div>' +
                             '<div class="category-content">' + (item.summary.insight || '해당 없음') + '</div>' +
@@ -1554,11 +1560,11 @@
             const data = window['summaryData_' + idx];
             if (!data) return;
             
-            if (toggleAudio(button, '🎧 듣기')) return;
+            if (toggleAudio(button, '듣기')) return;
             if (isSpeaking && !button.classList.contains('playing')) stopAllAudio();
             
             const fullText = buildSummaryText(data.summary, data.video.title, data.video.channel);
-            edgeTTS(fullText, button, '🎧 듣기', 'summary_' + idx);
+            edgeTTS(fullText, button, '듣기', 'summary_' + idx);
         }
 
         // TTS: 처음부터 재생
@@ -1570,7 +1576,7 @@
             if (!data || !playButton) return;
             
             const fullText = buildSummaryText(data.summary, data.video.title, data.video.channel);
-            edgeTTS(fullText, playButton, '🎧 듣기', 'summary_' + idx);
+            edgeTTS(fullText, playButton, '듣기', 'summary_' + idx);
         }
 
         // 전체 듣기: 개별 음성을 순차적으로 재생 (캐시 공유)
@@ -1578,14 +1584,14 @@
             if (ttsGenerating) return;
             const button = document.getElementById('playAllButton');
             
-            if (toggleAudio(button, '🔊 전체 듣기')) return;
+            if (toggleAudio(button, '전체 듣기')) return;
             if (isSpeaking && !button.classList.contains('playing')) stopAllAudio();
 
             if (!window.allSummaries || window.allSummaries.length === 0) return;
 
             isPlayingAll = true;
             playAllIndex = 0;
-            button.textContent = '⏸️ 정지';
+            button.textContent = '정지';
             button.classList.add('playing');
             
             playNextInQueue(button);
@@ -1593,7 +1599,7 @@
 
         async function playNextInQueue(allButton) {
             if (!isPlayingAll || playAllIndex >= window.allSummaries.length) {
-                allButton.textContent = '🔊 전체 듣기';
+                allButton.textContent = '전체 듣기';
                 allButton.classList.remove('playing');
                 isPlayingAll = false;
                 playAllIndex = -1;
@@ -1645,7 +1651,7 @@
                 currentAudio = audio;
                 isSpeaking = true;
                 isPaused = false;
-                allButton.textContent = '⏸️ 정지 (' + (idx + 1) + '/' + window.allSummaries.length + ')';
+                allButton.textContent = '정지 (' + (idx + 1) + '/' + window.allSummaries.length + ')';
 
                 audio.onended = function() {
                     playAllIndex++;
