@@ -1324,7 +1324,83 @@
         const TRANSCRIPT_WORKER_URL = WORKER_URLS[0];
 
         async function getVideoTranscript(videoId) {
-            // 여러 Worker를 순환하며 시도 (각 Worker당 2회)
+            // 방법 1: 브라우저에서 직접 Innertube API 호출 (사용자 IP 사용 - 차단 안됨)
+            try {
+                console.log('브라우저 직접 자막 추출 시도...');
+                var playerRes = await fetch('https://youtubei.googleapis.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        context: {
+                            client: {
+                                clientName: 'WEB',
+                                clientVersion: '2.20250101.00.00',
+                                hl: 'ko',
+                                gl: 'KR'
+                            }
+                        },
+                        videoId: videoId
+                    })
+                });
+                if (playerRes.ok) {
+                    var playerData = await playerRes.json();
+                    var tracks = ((playerData.captions || {}).playerCaptionsTracklistRenderer || {}).captionTracks || [];
+                    if (tracks.length > 0) {
+                        var track = null;
+                        ['ko', 'en'].forEach(function(lang) {
+                            if (!track) track = tracks.find(function(t) { return t.languageCode === lang; });
+                        });
+                        if (!track) track = tracks[0];
+                        if (track && track.baseUrl) {
+                            var capRes = await fetch(track.baseUrl + '&fmt=json3');
+                            if (capRes.ok) {
+                                var capData = await capRes.json();
+                                var texts = [];
+                                (capData.events || []).forEach(function(ev) {
+                                    (ev.segs || []).forEach(function(seg) {
+                                        var t = (seg.utf8 || '').replace(/\n/g, ' ').trim();
+                                        if (t) texts.push(t);
+                                    });
+                                });
+                                if (texts.length > 0) {
+                                    var transcript = texts.join(' ');
+                                    console.log('브라우저 직접 자막 성공:', transcript.length + '자');
+                                    return transcript;
+                                }
+                            }
+                            // json3 실패 시 XML 형식으로 재시도
+                            var capRes2 = await fetch(track.baseUrl);
+                            if (capRes2.ok) {
+                                var capText = await capRes2.text();
+                                var xmlTexts = [];
+                                var matches = capText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
+                                matches.forEach(function(m) {
+                                    var t = m.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
+                                    if (t) xmlTexts.push(t);
+                                });
+                                // <p> 태그 형식도 시도
+                                if (xmlTexts.length === 0) {
+                                    var pMatches = capText.match(/<p[^>]*>[\s\S]*?<\/p>/g) || [];
+                                    pMatches.forEach(function(p) {
+                                        var t = p.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
+                                        if (t) xmlTexts.push(t);
+                                    });
+                                }
+                                if (xmlTexts.length > 0) {
+                                    var transcript2 = xmlTexts.join(' ');
+                                    console.log('브라우저 직접 자막(XML) 성공:', transcript2.length + '자');
+                                    return transcript2;
+                                }
+                            }
+                        }
+                    }
+                    console.log('브라우저 직접: 자막트랙 없음 또는 파싱 실패');
+                }
+            } catch (e) {
+                console.log('브라우저 직접 자막 실패:', e.message);
+            }
+
+            // 방법 2: Worker 프록시 (각 Worker당 2회)
             for (var w = 0; w < WORKER_URLS.length; w++) {
                 for (var attempt = 0; attempt < 2; attempt++) {
                     try {
@@ -1332,7 +1408,6 @@
                             console.log('Worker ' + (w + 1) + '/' + WORKER_URLS.length + ' 시도 ' + (attempt + 1) + '/2...');
                             await new Promise(function(r) { setTimeout(r, 500 * attempt); });
                         }
-                      console.log("요청 URL:", WORKER_URLS[w] + '/?videoId=' + videoId);
                         var response = await fetch(WORKER_URLS[w] + '/?videoId=' + videoId);
                         if (response.ok) {
                             var data = await response.json();
@@ -1347,13 +1422,13 @@
                 }
             }
 
-            // 최종 폴백: 백엔드 서버
+            // 방법 3: 백엔드 서버
             try {
                 var response2 = await fetch(SERVER_URL + '/api/transcript/' + videoId);
                 if (response2.ok) {
                     var data2 = await response2.json();
                     if (data2.transcript) {
-                        console.log('백엔드 자막 가져오기 성공:', data2.transcript.length + '자');
+                        console.log('백엔드 자막 성공:', data2.transcript.length + '자');
                         return data2.transcript;
                     }
                 }
