@@ -641,6 +641,9 @@
             return headers;
         }
 
+        // YouTube OAuth access_token 저장
+        var youtubeAccessToken = null;
+
         // Google 로그인 콜백
         function handleCredentialResponse(response) {
             const credential = response.credential;
@@ -662,6 +665,8 @@
                     loadApiKeys().then(function() {
                         if (channels.length > 0) loadVideos();
                     });
+                    // OAuth access_token 획득 (YouTube API 자막 접근용)
+                    requestYouTubeAccessToken();
                 } else {
                     alert('로그인 실패: ' + (data.error || '알 수 없는 오류'));
                 }
@@ -670,6 +675,25 @@
                 console.error('로그인 오류:', err);
                 alert('로그인 중 오류가 발생했습니다: ' + err.message);
             });
+        }
+
+        // YouTube access_token 요청
+        function requestYouTubeAccessToken() {
+            try {
+                var tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: '959978801803-0o94g9m7irav77nkl8hu8l90q4i4pklv.apps.googleusercontent.com',
+                    scope: 'https://www.googleapis.com/auth/youtube.force-ssl',
+                    callback: function(tokenResponse) {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            youtubeAccessToken = tokenResponse.access_token;
+                            console.log('YouTube access_token 획득 성공');
+                        }
+                    }
+                });
+                tokenClient.requestAccessToken();
+            } catch (e) {
+                console.log('access_token 요청 실패 (정상 작동에 영향 없음):', e.message);
+            }
         }
 
         // 로그아웃
@@ -1324,80 +1348,151 @@
         const TRANSCRIPT_WORKER_URL = WORKER_URLS[0];
 
         async function getVideoTranscript(videoId) {
-            // 방법 1: Worker CORS 프록시 → Invidious API (Worker IP → Invidious 서버 → YouTube)
-            var invInstances = [
-                'https://inv.nadeko.net',
-                'https://yewtu.be',
-                'https://invidious.nerdvpn.de'
+            // 방법 1: Worker CORS 프록시 → Piped API (/streams/ 엔드포인트)
+            var pipedInstances = [
+                'https://pipedapi.kavin.rocks',
+                'https://pipedapi.leptons.xyz',
+                'https://pipedapi-libre.kavin.rocks',
+                'https://piped-api.privacy.com.de',
+                'https://pipedapi.adminforge.de',
+                'https://api.piped.yt',
+                'https://pipedapi.nosebs.ru'
             ];
-            for (var ii = 0; ii < invInstances.length; ii++) {
-                for (var ww = 0; ww < WORKER_URLS.length; ww++) {
-                    try {
-                        console.log('Inv' + (ii+1) + ' via Worker' + (ww+1) + ' 시도...');
-                        var proxyTarget = encodeURIComponent(invInstances[ii] + '/api/v1/captions/' + videoId);
-                        var invRes = await fetch(WORKER_URLS[ww] + '/?proxy=' + proxyTarget);
-                        if (!invRes.ok) {
-                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': HTTP ' + invRes.status);
-                            continue;
+            for (var pi = 0; pi < pipedInstances.length; pi++) {
+                try {
+                    console.log('Piped ' + (pi+1) + '/' + pipedInstances.length + ' 시도...');
+                    var pipedTarget = encodeURIComponent(pipedInstances[pi] + '/streams/' + videoId);
+                    var pipedRes = await fetch(WORKER_URLS[0] + '/?proxy=' + pipedTarget);
+                    if (!pipedRes.ok) {
+                        console.log('Piped ' + (pi+1) + ': HTTP ' + pipedRes.status);
+                        continue;
+                    }
+                    var pipedData = await pipedRes.json();
+                    var subs = pipedData.subtitles || [];
+                    if (subs.length === 0) {
+                        console.log('Piped ' + (pi+1) + ': 자막 없음');
+                        continue;
+                    }
+                    console.log('Piped ' + (pi+1) + ': 자막 ' + subs.length + '개 발견 - ' + subs.map(function(s){return s.code;}).join(','));
+                    var sub = null;
+                    ['ko', 'en'].forEach(function(lang) {
+                        if (!sub) sub = subs.find(function(s) { return (s.code || '').startsWith(lang); });
+                    });
+                    if (!sub) sub = subs[0];
+                    var subUrl = sub.url || '';
+                    if (!subUrl) { console.log('Piped ' + (pi+1) + ': URL 없음'); continue; }
+                    console.log('Piped ' + (pi+1) + ' 자막URL:', subUrl.substring(0, 100));
+                    // 자막 URL이 YouTube URL이면 Worker 프록시 경유
+                    var capFetchUrl = subUrl;
+                    if (subUrl.includes('youtube.com') || subUrl.includes('googlevideo.com')) {
+                        capFetchUrl = WORKER_URLS[0] + '/?proxy=' + encodeURIComponent(subUrl);
+                    }
+                    var capRes = await fetch(capFetchUrl);
+                    if (!capRes.ok) {
+                        console.log('Piped ' + (pi+1) + ': 자막다운 HTTP ' + capRes.status);
+                        continue;
+                    }
+                    var capText = await capRes.text();
+                    console.log('Piped ' + (pi+1) + ' 자막길이:', capText.length);
+                    if (capText.length < 50) {
+                        console.log('Piped ' + (pi+1) + ': 자막 너무 짧음');
+                        continue;
+                    }
+                    // WEBVTT 파싱
+                    var lines = capText.split('\n');
+                    var texts = [];
+                    lines.forEach(function(line) {
+                        var trimmed = line.trim();
+                        if (trimmed && !trimmed.startsWith('WEBVTT') && !trimmed.includes('-->') && !trimmed.match(/^\d+$/) && !trimmed.startsWith('Kind:') && !trimmed.startsWith('Language:') && !trimmed.startsWith('NOTE')) {
+                            var clean = trimmed.replace(/<[^>]+>/g, '').trim();
+                            if (clean) texts.push(clean);
                         }
-                        var invData = await invRes.json();
-                        var captions = invData.captions || [];
-                        if (captions.length === 0) {
-                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막 없음');
-                            break; // 같은 Invidious에서 자막 없으면 다른 Worker로 해도 같음
-                        }
-                        var cap = null;
-                        ['ko', 'en'].forEach(function(lang) {
-                            if (!cap) cap = captions.find(function(c) { return (c.language_code || c.languageCode || '').startsWith(lang); });
+                    });
+                    // XML 파싱 폴백
+                    if (texts.length === 0) {
+                        var xmlMatches = capText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
+                        xmlMatches.forEach(function(m) {
+                            var t = m.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
+                            if (t) texts.push(t);
                         });
-                        if (!cap) cap = captions[0];
-                        var capUrl = cap.url || '';
-                        if (!capUrl) { break; }
-                        if (capUrl.startsWith('/')) capUrl = invInstances[ii] + capUrl;
-                        console.log('Inv' + (ii+1) + ' 자막URL:', capUrl);
-                        var capProxy = encodeURIComponent(capUrl);
-                        var capRes = await fetch(WORKER_URLS[ww] + '/?proxy=' + capProxy);
-                        if (!capRes.ok) {
-                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막다운 HTTP ' + capRes.status);
-                            continue;
-                        }
-                        var capText = await capRes.text();
-                        console.log('Inv' + (ii+1) + ' 자막길이:', capText.length, '시작:', capText.substring(0, 100));
-                        if (capText.length < 50) {
-                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막 너무 짧음');
-                            continue;
-                        }
-                        // WEBVTT 파싱
-                        var lines = capText.split('\n');
-                        var texts = [];
-                        lines.forEach(function(line) {
-                            var trimmed = line.trim();
-                            if (trimmed && !trimmed.startsWith('WEBVTT') && !trimmed.includes('-->') && !trimmed.match(/^\d+$/) && !trimmed.startsWith('Kind:') && !trimmed.startsWith('Language:') && !trimmed.startsWith('NOTE')) {
-                                var clean = trimmed.replace(/<[^>]+>/g, '').trim();
-                                if (clean) texts.push(clean);
+                    }
+                    // JSON3 파싱 폴백
+                    if (texts.length === 0) {
+                        try {
+                            var j3 = JSON.parse(capText);
+                            if (j3.events) {
+                                j3.events.forEach(function(ev) {
+                                    (ev.segs || []).forEach(function(seg) {
+                                        var t = (seg.utf8 || '').replace(/\n/g, ' ').trim();
+                                        if (t) texts.push(t);
+                                    });
+                                });
                             }
+                        } catch(e2) {}
+                    }
+                    if (texts.length > 0) {
+                        var transcript = texts.join(' ');
+                        console.log('Piped ' + (pi+1) + ' 자막 성공:', transcript.length + '자');
+                        return transcript;
+                    }
+                    console.log('Piped ' + (pi+1) + ': 파싱 실패, 시작:', capText.substring(0, 200));
+                } catch (e) {
+                    console.log('Piped ' + (pi+1) + ' 실패:', e.message);
+                }
+            }
+
+            // 방법 2: access_token으로 Innertube API (Worker 프록시 경유)
+            if (youtubeAccessToken) {
+                for (var aw = 0; aw < WORKER_URLS.length; aw++) {
+                    try {
+                        console.log('OAuth Innertube via Worker' + (aw+1) + ' 시도...');
+                        var oauthTarget = encodeURIComponent('https://youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false');
+                        var oauthRes = await fetch(WORKER_URLS[aw] + '/?proxy=' + oauthTarget + '&auth=' + encodeURIComponent(youtubeAccessToken), {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                context: {client: {clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'ko', gl: 'KR'}},
+                                videoId: videoId
+                            })
                         });
-                        // XML 파싱 폴백
-                        if (texts.length === 0) {
-                            var xmlMatches = capText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
-                            xmlMatches.forEach(function(m) {
-                                var t = m.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
-                                if (t) texts.push(t);
-                            });
+                        if (oauthRes.ok) {
+                            var oauthData = await oauthRes.json();
+                            var oauthTracks = ((oauthData.captions || {}).playerCaptionsTracklistRenderer || {}).captionTracks || [];
+                            if (oauthTracks.length > 0) {
+                                var oauthTrack = null;
+                                ['ko', 'en'].forEach(function(lang) {
+                                    if (!oauthTrack) oauthTrack = oauthTracks.find(function(t) { return t.languageCode === lang; });
+                                });
+                                if (!oauthTrack) oauthTrack = oauthTracks[0];
+                                if (oauthTrack && oauthTrack.baseUrl) {
+                                    var oauthCapRes = await fetch(WORKER_URLS[aw] + '/?proxy=' + encodeURIComponent(oauthTrack.baseUrl + '&fmt=json3'));
+                                    if (oauthCapRes.ok) {
+                                        var oauthCapData = await oauthCapRes.json();
+                                        var oauthTexts = [];
+                                        (oauthCapData.events || []).forEach(function(ev) {
+                                            (ev.segs || []).forEach(function(seg) {
+                                                var t = (seg.utf8 || '').replace(/\n/g, ' ').trim();
+                                                if (t) oauthTexts.push(t);
+                                            });
+                                        });
+                                        if (oauthTexts.length > 0) {
+                                            console.log('OAuth Innertube Worker' + (aw+1) + ' 자막 성공:', oauthTexts.join(' ').length + '자');
+                                            return oauthTexts.join(' ');
+                                        }
+                                    }
+                                }
+                            }
+                            console.log('OAuth Innertube Worker' + (aw+1) + ': 자막트랙 없음');
+                        } else {
+                            console.log('OAuth Innertube Worker' + (aw+1) + ': HTTP ' + oauthRes.status);
                         }
-                        if (texts.length > 0) {
-                            var transcript = texts.join(' ');
-                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ' 자막 성공:', transcript.length + '자');
-                            return transcript;
-                        }
-                        console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 파싱 실패');
                     } catch (e) {
-                        console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ' 실패:', e.message);
+                        console.log('OAuth Innertube Worker' + (aw+1) + ' 실패:', e.message);
                     }
                 }
             }
 
-            // 방법 2: Worker 프록시 (각 Worker당 2회)
+            // 방법 3: Worker 프록시 (각 Worker당 2회)
             for (var w = 0; w < WORKER_URLS.length; w++) {
                 for (var attempt = 0; attempt < 2; attempt++) {
                     try {
@@ -1419,7 +1514,7 @@
                 }
             }
 
-            // 방법 3: 백엔드 서버
+            // 방법 4: 백엔드 서버
             try {
                 var response2 = await fetch(SERVER_URL + '/api/transcript/' + videoId);
                 if (response2.ok) {
