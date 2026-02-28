@@ -1354,6 +1354,7 @@
                         var capUrl = cap.url || '';
                         if (!capUrl) { break; }
                         if (capUrl.startsWith('/')) capUrl = invInstances[ii] + capUrl;
+                        console.log('Inv' + (ii+1) + ' 자막URL:', capUrl);
                         var capProxy = encodeURIComponent(capUrl);
                         var capRes = await fetch(WORKER_URLS[ww] + '/?proxy=' + capProxy);
                         if (!capRes.ok) {
@@ -1361,6 +1362,7 @@
                             continue;
                         }
                         var capText = await capRes.text();
+                        console.log('Inv' + (ii+1) + ' 자막길이:', capText.length, '시작:', capText.substring(0, 100));
                         if (capText.length < 50) {
                             console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막 너무 짧음');
                             continue;
