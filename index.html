@@ -1324,68 +1324,74 @@
         const TRANSCRIPT_WORKER_URL = WORKER_URLS[0];
 
         async function getVideoTranscript(videoId) {
-            // 방법 1: Invidious 인스턴스 API (브라우저에서 직접 호출)
+            // 방법 1: Worker CORS 프록시 → Invidious API (Worker IP → Invidious 서버 → YouTube)
             var invInstances = [
                 'https://inv.nadeko.net',
                 'https://yewtu.be',
-                'https://invidious.nerdvpn.de',
-                'https://invidious.privacyredirect.com',
-                'https://iv.ggtyler.dev'
+                'https://invidious.nerdvpn.de'
             ];
             for (var ii = 0; ii < invInstances.length; ii++) {
-                try {
-                    console.log('Invidious ' + (ii+1) + '/' + invInstances.length + ' 시도...');
-                    var invRes = await fetch(invInstances[ii] + '/api/v1/captions/' + videoId, {
-                        signal: AbortSignal.timeout(8000)
-                    });
-                    if (!invRes.ok) {
-                        console.log('Invidious ' + (ii+1) + ': HTTP ' + invRes.status);
-                        continue;
-                    }
-                    var invData = await invRes.json();
-                    var captions = invData.captions || [];
-                    if (captions.length === 0) {
-                        console.log('Invidious ' + (ii+1) + ': 자막 없음');
-                        continue;
-                    }
-                    var cap = null;
-                    ['ko', 'en'].forEach(function(lang) {
-                        if (!cap) cap = captions.find(function(c) { return (c.language_code || c.languageCode || '').startsWith(lang); });
-                    });
-                    if (!cap) cap = captions[0];
-                    var capUrl = cap.url || '';
-                    if (!capUrl) continue;
-                    if (capUrl.startsWith('/')) capUrl = invInstances[ii] + capUrl;
-                    var capRes = await fetch(capUrl, {signal: AbortSignal.timeout(8000)});
-                    if (!capRes.ok) continue;
-                    var capText = await capRes.text();
-                    if (capText.length < 50) continue;
-                    // WEBVTT 파싱
-                    var lines = capText.split('\n');
-                    var texts = [];
-                    lines.forEach(function(line) {
-                        var trimmed = line.trim();
-                        if (trimmed && !trimmed.startsWith('WEBVTT') && !trimmed.includes('-->') && !trimmed.match(/^\d+$/) && !trimmed.startsWith('Kind:') && !trimmed.startsWith('Language:') && !trimmed.startsWith('NOTE')) {
-                            var clean = trimmed.replace(/<[^>]+>/g, '').trim();
-                            if (clean) texts.push(clean);
+                for (var ww = 0; ww < WORKER_URLS.length; ww++) {
+                    try {
+                        console.log('Inv' + (ii+1) + ' via Worker' + (ww+1) + ' 시도...');
+                        var proxyTarget = encodeURIComponent(invInstances[ii] + '/api/v1/captions/' + videoId);
+                        var invRes = await fetch(WORKER_URLS[ww] + '/?proxy=' + proxyTarget);
+                        if (!invRes.ok) {
+                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': HTTP ' + invRes.status);
+                            continue;
                         }
-                    });
-                    // XML 파싱 폴백
-                    if (texts.length === 0) {
-                        var xmlMatches = capText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
-                        xmlMatches.forEach(function(m) {
-                            var t = m.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
-                            if (t) texts.push(t);
+                        var invData = await invRes.json();
+                        var captions = invData.captions || [];
+                        if (captions.length === 0) {
+                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막 없음');
+                            break; // 같은 Invidious에서 자막 없으면 다른 Worker로 해도 같음
+                        }
+                        var cap = null;
+                        ['ko', 'en'].forEach(function(lang) {
+                            if (!cap) cap = captions.find(function(c) { return (c.language_code || c.languageCode || '').startsWith(lang); });
                         });
+                        if (!cap) cap = captions[0];
+                        var capUrl = cap.url || '';
+                        if (!capUrl) { break; }
+                        if (capUrl.startsWith('/')) capUrl = invInstances[ii] + capUrl;
+                        var capProxy = encodeURIComponent(capUrl);
+                        var capRes = await fetch(WORKER_URLS[ww] + '/?proxy=' + capProxy);
+                        if (!capRes.ok) {
+                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막다운 HTTP ' + capRes.status);
+                            continue;
+                        }
+                        var capText = await capRes.text();
+                        if (capText.length < 50) {
+                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 자막 너무 짧음');
+                            continue;
+                        }
+                        // WEBVTT 파싱
+                        var lines = capText.split('\n');
+                        var texts = [];
+                        lines.forEach(function(line) {
+                            var trimmed = line.trim();
+                            if (trimmed && !trimmed.startsWith('WEBVTT') && !trimmed.includes('-->') && !trimmed.match(/^\d+$/) && !trimmed.startsWith('Kind:') && !trimmed.startsWith('Language:') && !trimmed.startsWith('NOTE')) {
+                                var clean = trimmed.replace(/<[^>]+>/g, '').trim();
+                                if (clean) texts.push(clean);
+                            }
+                        });
+                        // XML 파싱 폴백
+                        if (texts.length === 0) {
+                            var xmlMatches = capText.match(/<text[^>]*>([\s\S]*?)<\/text>/g) || [];
+                            xmlMatches.forEach(function(m) {
+                                var t = m.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
+                                if (t) texts.push(t);
+                            });
+                        }
+                        if (texts.length > 0) {
+                            var transcript = texts.join(' ');
+                            console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ' 자막 성공:', transcript.length + '자');
+                            return transcript;
+                        }
+                        console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ': 파싱 실패');
+                    } catch (e) {
+                        console.log('Inv' + (ii+1) + ' Worker' + (ww+1) + ' 실패:', e.message);
                     }
-                    if (texts.length > 0) {
-                        var transcript = texts.join(' ');
-                        console.log('Invidious ' + (ii+1) + ' 자막 성공:', transcript.length + '자');
-                        return transcript;
-                    }
-                    console.log('Invidious ' + (ii+1) + ': 파싱 실패');
-                } catch (e) {
-                    console.log('Invidious ' + (ii+1) + ' 실패:', e.message);
                 }
             }
 
