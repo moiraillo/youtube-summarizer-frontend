@@ -1332,6 +1332,7 @@
                             console.log('Worker ' + (w + 1) + '/' + WORKER_URLS.length + ' 시도 ' + (attempt + 1) + '/2...');
                             await new Promise(function(r) { setTimeout(r, 500 * attempt); });
                         }
+                      console.log("요청 URL:", WORKER_URLS[w] + '/?videoId=' + videoId);
                         var response = await fetch(WORKER_URLS[w] + '/?videoId=' + videoId);
                         if (response.ok) {
                             var data = await response.json();
